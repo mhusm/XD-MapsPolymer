@@ -19,7 +19,7 @@
  *
  */
 
-var XDmvcServer = require('xd-mvc/xdmvcserver.js');
+var XDmvcServer = require('xdmvcserver/xdmvcserver.js');
 var path = require('path');
 var xdmvc = new XDmvcServer();
 

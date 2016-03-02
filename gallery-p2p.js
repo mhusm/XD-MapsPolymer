@@ -18,31 +18,17 @@
  * See the README and LICENSE files for further information.
  *
  */
-module.exports = function(grunt) {
+var XDmvcServer = require('xdmvcserver/xdmvcserver.js');
+var path = require('path');
+var xdmvc = new XDmvcServer();
 
-    // Project configuration.
-    grunt.initConfig({
-        pkg: grunt.file.readJSON('package.json'),
-        clean: {
-            client:  ["./public/bower_components/xdmvcclient"],
-            server:  ["./node_modules/xd-mvc"]
-        },
+var connect = require('connect'),
+    http = require('http'),
+	serveStatic = require('serve-static');
+var app = connect().use(serveStatic(path.join(__dirname, 'public')));
+var server = http.createServer(app);
 
-        "bower-install-simple": {
-            options: {
-                color: true,
-                cwd: './',
-                directory: "./public/bower_components/"
-            }
-        }
-     });
+xdmvc.start(9005, 3001, 9006);
+server.listen(8082);
 
-    grunt.loadNpmTasks('grunt-contrib-clean');
-    grunt.loadNpmTasks('grunt-bower-install-task');
-    grunt.loadNpmTasks('grunt-npm-install');
 
-    // Default task(s).
-    grunt.registerTask('default', ['clean:client', 'bower_install']);
-    grunt.registerTask('server', ['clean:server', 'npm-install']);
-
-};
