@@ -16,10 +16,11 @@
     "paper-icon-button": "PolymerElements/paper-icon-button#1.0.0",
     "paper-input": "PolymerElements/paper-input#1.0.0",
     "qr-code": "webcomponent-qr-code#~0.1.8",
-    "xdmvcclient":  "mhusm/XD-MVC-Client",
+    "xdmvcclient": "mhusm/XD-MVC-Client",
     "iron-icons": "PolymerElements/iron-icons#~1.0.4",
     "paper-badge": "PolymerElements/paper-badge#~1.0.4",
-    "iron-pages": "PolymerElements/iron-pages#~1.0.3"
+    "iron-pages": "PolymerElements/iron-pages#~1.0.3",
+    "google-map": "GoogleWebComponents/google-map#^1.1.10"
   },
   "resolutions": {
     "polymer": "^1.1.0"
