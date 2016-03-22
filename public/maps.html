@@ -13,78 +13,119 @@
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-connect.html">
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-connection.html">
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-url-pairing.html">
+    <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-role.html">
+    <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-roles.html">
     <link rel="import" href="bower_components/google-map/google-map.html">
+    <link rel="import" href="bower_components/paper-radio-group/paper-radio-group.html">
+    <link rel="import" href="bower_components/paper-radio-button/paper-radio-button.html">
     <title></title>
 </head>
 <body>
+<style>
+    html,body {
+        font-family: 'RobotoDraft', sans-serif;
+        padding: 0;
+        margin: 0;
+    }
+
+</style>
 
 <dom-module id="my-app">
     <template>
         <xdmvc-connection ></xdmvc-connection>
 
         <xdmvc-synchronised id="sync"
-                            objects='{{synced}}'>
+                            objects='{{synced}}'
+                            other-devices="{{others}}">
         </xdmvc-synchronised>
-        <xdmvc-devices id="devices" devices="{{devices}}"></xdmvc-devices>
-        <xdmvc-url-pairing connector="viewer" connectee="controller" url="{{url}}"></xdmvc-url-pairing>
-        </controller-layout>
-        <google-map latitude="{{synced.map.latitude}}" longitude="{{synced.map.longitude}}"  zoom="{{synced.map.zoom}}">
+        <xdmvc-url-pairing connector="viewer" connectee="overview" ></xdmvc-url-pairing>
+        <xdmvc-role name="overview" config='["center", "zoom"]' no-merge></xdmvc-role>
+        <xdmvc-role name="mirror" config='["center", "zoom"]' filter="mirror"></xdmvc-role>
+        <xdmvc-roles id="roles" roles="{{roles}}" available='["viewer", "overview", "mirror"]' ></xdmvc-roles>
 
+        <!--
+        <template is="dom-repeat" items="{{others}}">
+            <div>{{item.id}}</div>
+            <div>{{item.data.center.longitude}}</div>
+            <div>{{item.data.zoom.level}}</div>
+        </template>
+-->
 
+        <paper-radio-group selected="{{selectedRole}}">
+            <template is="dom-repeat" items='["viewer", "overview", "mirror"]' >
+                <paper-radio-button name="[[item]]">[[item]]</paper-radio-button>
+            </template>
+        </paper-radio-group>
+        <google-map latitude="{{synced.center.latitude}}" longitude="{{synced.center.longitude}}"
+                   zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
+           <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
+               <template is="dom-repeat" items="{{others}}" >
+                   <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
+                                  title="Go Giants!" ></google-map-marker>
+               </template>
+
+           </template>
         </google-map>
 
-        <style>
+       <style>
 
-            html,body {
-                font-family: 'RobotoDraft', sans-serif;
-            }
 
-            img {
-                max-width: 100%;
-            }
+          paper-radio-group {
+              height: 3em;
+          }
 
-            #buttons {
-                margin-top : 8px;
-                margin-left: -4px;
-            }
+          google-map {
+              height: calc(100vh - 3em);
+          }
 
-            google-map {
-                height: 600px;
-            }
-
-        </style>
-    </template>
+      </style>
+   </template>
 </dom-module>
 <script>
-    HTMLImports.whenReady(function () {
+  HTMLImports.whenReady(function () {
 
-        Polymer({
-            is: "my-app",
-            properties: {
-                synced: {
-                    type: Object,
-                    value: function(){ return { map: {latitude: 47.3786, longitude: 8.5488, zoom:12 }}} ,
-                    notify: true
-                },
-                url:{
-                    type: String,
-                    notify: true
-                },
-                roles:{
-                    type: Object,
-                    notify: true
-                },
-                devices:{
-                    type: Object,
-                    notify: true
-                },
-                currentIndex: {
-                    type: Number
-                }
-            }
+      Polymer({
+          is: "my-app",
+          properties: {
+              synced: {
+                  type: Object,
+                  value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488}, zoom: {level:12}}} ,
+                  notify: true
+              },
+              roles:{
+                  type: Object,
+                  notify: true
+              },
+              others: {
+                  type: Array
+              },
+              selectedRole: {
+                  type: String,
+                  observer: "selectedRoleChanged"
+              }
+          },
 
-        });
-    });
+          observers: ["selectedChanged(roles.selected.*)"],
+
+          attached: function() {
+              XDmvc.removeRole("sync-all");
+          },
+
+          selectedRoleChanged: function(newVal, oldVal){
+              if (oldVal) {
+                  this.$.roles.removeRole(oldVal);
+              }
+              if (newVal) {
+                  this.$.roles.addRole(newVal);
+              }
+          },
+
+          selectedChanged: function(){
+              this.selectedRole = this.roles.selected[0];
+          }
+
+      });
+  });
 </script>
 
 <my-app></my-app>
