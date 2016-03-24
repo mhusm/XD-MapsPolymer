@@ -15,6 +15,7 @@
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-url-pairing.html">
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-role.html">
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-roles.html">
+    <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-devices.html">
     <link rel="import" href="bower_components/google-map/google-map.html">
     <link rel="import" href="bower_components/paper-radio-group/paper-radio-group.html">
     <link rel="import" href="bower_components/paper-radio-button/paper-radio-button.html">
@@ -41,31 +42,45 @@
         <xdmvc-url-pairing connector="viewer" connectee="overview" ></xdmvc-url-pairing>
         <xdmvc-role name="overview" config='["center", "zoom"]' no-merge></xdmvc-role>
         <xdmvc-role name="mirror" config='["center", "zoom"]' filter="mirror"></xdmvc-role>
-        <xdmvc-roles id="roles" roles="{{roles}}" available='["viewer", "overview", "mirror"]' ></xdmvc-roles>
+        <xdmvc-role name="extended" config='["center", "zoom"]' filter="extended"></xdmvc-role>
+        <xdmvc-role name="distance" config='["distance"]' filter="extended" no-merge></xdmvc-role>
+        <xdmvc-roles id="roles" roles="{{roles}}" select='["distance"]' available='[[availableRoles]]'
+                     no-default on-others-roles-changed="sortDevices"></xdmvc-roles>
+        <xdmvc-devices devices="{{devices}}" on-device-changed="sortDevices"></xdmvc-devices>
 
-        <!--
         <template is="dom-repeat" items="{{others}}">
             <div>{{item.id}}</div>
-            <div>{{item.data.center.longitude}}</div>
+            <div>{{item.data.distance.value}}</div>
+            <div>{{item.data.center.latitude}}</div>
             <div>{{item.data.zoom.level}}</div>
         </template>
--->
 
         <paper-radio-group selected="{{selectedRole}}">
-            <template is="dom-repeat" items='["viewer", "overview", "mirror"]' >
+            <template is="dom-repeat" items='[[availableRoles]]'>
                 <paper-radio-button name="[[item]]">[[item]]</paper-radio-button>
             </template>
         </paper-radio-group>
-        <google-map latitude="{{synced.center.latitude}}" longitude="{{synced.center.longitude}}"
-                   zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
-           <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
-               <template is="dom-repeat" items="{{others}}" >
-                   <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
-                                  title="Go Giants!" ></google-map-marker>
-               </template>
 
-           </template>
-        </google-map>
+
+        <template is="dom-if" if="[[roles.isselected.extended]]" restamp >
+            <google-map id="gmap" latitude="{{synced.center.latitude}}" longitude="{{offsetLongitude}}"
+                        zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
+
+            </google-map>
+        </template>
+
+        <template is="dom-if" if="[[!roles.isselected.extended]]" restamp >
+            <google-map latitude="{{synced.center.latitude}}" longitude="{{synced.center.longitude}}"
+                       zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
+               <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
+                   <template is="dom-repeat" items="{{others}}" >
+                       <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
+                                      title="Go Giants!" ></google-map-marker>
+                   </template>
+
+               </template>
+            </google-map>
+        </template>
 
        <style>
 
@@ -89,7 +104,7 @@
           properties: {
               synced: {
                   type: Object,
-                  value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488}, zoom: {level:12}}} ,
+                  value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488}, zoom: {level:12}, distance: {value: 0}}} ,
                   notify: true
               },
               roles:{
@@ -99,17 +114,51 @@
               others: {
                   type: Array
               },
+
+              devices: {
+                  type: Object
+              },
+              myPosition: {
+                  type: Number,
+                  value: 0
+              },
+
+              sortedDevices: {
+                  type: Array
+              },
+              myOffset: {
+                  type: Number,
+                  value: 0
+              },
+
+              offsetLongitude: {
+                  type: Number,
+                  observer: "offsetLongitudeChanged",
+                  value: 8.5488
+              },
+
               selectedRole: {
                   type: String,
                   observer: "selectedRoleChanged"
+              },
+              availableRoles: {
+                  type: Array,
+                  value: ["viewer", "overview", "mirror", "extended"]
               }
+
+           },
+
+          observers: ["selectedChanged(roles.selected.*)",
+                  "updateDistance(synced.zoom.level, selectedRole)",
+                  "updateMyOffset(myPosition, others.*)",
+              "longitudeChanged(synced.center.longitude, myOffset)"],
+
+          ready: function() {
+              window.addEventListener('resize', function(event){
+                  this.updateDistance();
+              }.bind(this));
           },
 
-          observers: ["selectedChanged(roles.selected.*)"],
-
-          attached: function() {
-              XDmvc.removeRole("sync-all");
-          },
 
           selectedRoleChanged: function(newVal, oldVal){
               if (oldVal) {
@@ -118,14 +167,126 @@
               if (newVal) {
                   this.$.roles.addRole(newVal);
               }
+              this.sortDevices();
           },
 
           selectedChanged: function(){
-              this.selectedRole = this.roles.selected[0];
+                var nodist = this.roles.selected.filter(function(r){
+                    return r !== "distance";
+                });
+
+              this.selectedRole = nodist[0];
+          },
+
+          offsetLongitudeChanged: function() {
+              this.set("synced.center.longitude",  Math.round10(this.offsetLongitude  -this.myOffset, -10));
+          },
+          longitudeChanged: function() {
+              if (this.roles && this.roles.isselected.extended) {
+                  this.offsetLongitude =  Math.round10(this.synced.center.longitude +this.myOffset, -10);
+              }
+
+          },
+          sortDevices: function(arg1, arg2) {
+               this.myPosition = 0;
+              if (this.devices && this.devices.connectedDevices && this.roles && this.roles.isselected.extended) {
+                  this.sortedDevices = this.devices.connectedDevices.filter(function(d) {
+                      return d.hasRole("extended");
+                  }).map(function(d){
+                      return d.device;
+                  });
+                  this.sortedDevices.push(this.devices.thisDevice);
+                  this.sortedDevices.sort(function(a, b){
+                      // Compare IDs
+                      return  a.id.localeCompare(b.id);
+                  });
+                  this.myPosition = this.sortedDevices.indexOf(this.devices.thisDevice)
+              }
+          },
+
+          updateMyOffset: function(){
+              var total = 0;
+              var i;
+              var getDist = function(index) {
+                  var device = this.devices.connectedDevices.find(function(d ){
+                      return this.sortedDevices[index].id == d.id
+                  }, this);
+                  return  device.latestData.distance? device.latestData.distance.value : 0;
+              }.bind(this);
+              for (i=0; i <this.myPosition; i++) {
+                  total += i>0? 2*getDist(i) : getDist(i);
+              }
+              if (this.myPosition > 0) {
+                  total += this.synced.distance.value;
+              }
+
+              this.myOffset = total;
+          },
+
+          updateDistance: function(){
+              this.async(function() {
+                  if (this.$$("#gmap")) {
+                      this.set("synced.distance.value",
+                              this.offsetLongitude - this.$$("#gmap").map.getBounds().getNorthEast().lng());
+                  }
+              });
           }
+
+
 
       });
   });
+
+
+  // Rounding numbers. Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
+  // Closure
+  (function() {
+      /**
+       * Decimal adjustment of a number.
+       *
+       * @param {String}  type  The type of adjustment.
+       * @param {Number}  value The number.
+       * @param {Integer} exp   The exponent (the 10 logarithm of the adjustment base).
+       * @returns {Number} The adjusted value.
+       */
+      function decimalAdjust(type, value, exp) {
+          // If the exp is undefined or zero...
+          if (typeof exp === 'undefined' || +exp === 0) {
+              return Math[type](value);
+          }
+          value = +value;
+          exp = +exp;
+          // If the value is not a number or the exp is not an integer...
+          if (isNaN(value) || !(typeof exp === 'number' && exp % 1 === 0)) {
+              return NaN;
+          }
+          // Shift
+          value = value.toString().split('e');
+          value = Math[type](+(value[0] + 'e' + (value[1] ? (+value[1] - exp) : -exp)));
+          // Shift back
+          value = value.toString().split('e');
+          return +(value[0] + 'e' + (value[1] ? (+value[1] + exp) : exp));
+      }
+
+      // Decimal round
+      if (!Math.round10) {
+          Math.round10 = function(value, exp) {
+              return decimalAdjust('round', value, exp);
+          };
+      }
+      // Decimal floor
+      if (!Math.floor10) {
+          Math.floor10 = function(value, exp) {
+              return decimalAdjust('floor', value, exp);
+          };
+      }
+      // Decimal ceil
+      if (!Math.ceil10) {
+          Math.ceil10 = function(value, exp) {
+              return decimalAdjust('ceil', value, exp);
+          };
+      }
+  })();
 </script>
 
 <my-app></my-app>
