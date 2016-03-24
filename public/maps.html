@@ -17,6 +17,7 @@
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-roles.html">
     <link rel="import" href="bower_components/xdmvcclient/polymer/xdmvc-devices.html">
     <link rel="import" href="bower_components/google-map/google-map.html">
+    <link rel="import" href="bower_components/google-map/google-map-poly.html">
     <link rel="import" href="bower_components/paper-radio-group/paper-radio-group.html">
     <link rel="import" href="bower_components/paper-radio-button/paper-radio-button.html">
     <meta name="viewport" content="width=device-width, user-scalable=no">
@@ -42,7 +43,7 @@
                             other-devices="{{others}}">
         </xdmvc-synchronised>
         <xdmvc-url-pairing connector="viewer" connectee="overview" ></xdmvc-url-pairing>
-        <xdmvc-role name="overview" config='["center", "zoom"]' no-merge></xdmvc-role>
+        <xdmvc-role name="overview" config='["bounds"]' no-merge></xdmvc-role>
         <xdmvc-role name="mirror" config='["center", "zoom"]' filter="mirror"></xdmvc-role>
         <xdmvc-role name="extended" config='["center", "zoom", "map"]' filter="extended"></xdmvc-role>
         <xdmvc-role name="distance" config='["distance"]' filter="extended" no-merge></xdmvc-role>
@@ -55,6 +56,7 @@
             <div>{{item.data.distance.value}}</div>
             <div>{{item.data.center.latitude}}</div>
             <div>{{item.data.zoom.level}}</div>
+            <div>{{item.data.bounds.sw.lat}}</div>
         </template>
 
         <paper-radio-group selected="{{selectedRole}}">
@@ -67,11 +69,16 @@
                     map-type="{{synced.map.type}}">
            <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
                <template is="dom-repeat" items="{{others}}" >
-                   <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
-                                  title="Go Giants!" ></google-map-marker>
+                   <google-map-poly id="poly[[index]]" closed fill-color="red" fill-opacity=".25" stroke-weight="1">
+                       <google-map-point latitude="{{item.data.bounds.sw.lat}}" longitude="{{item.data.bounds.ne.lng}}"></google-map-point>
+                       <google-map-point latitude="{{item.data.bounds.sw.lat}}" longitude="{{item.data.bounds.sw.lng}}"></google-map-point>
+                       <google-map-point latitude="{{item.data.bounds.ne.lat}}" longitude="{{item.data.bounds.sw.lng}}"></google-map-point>
+                       <google-map-point latitude="{{item.data.bounds.ne.lat}}" longitude="{{item.data.bounds.ne.lng}}"></google-map-point>
+                   </google-map-poly>
                </template>
 
            </template>
+
         </google-map>
        <style>
           paper-radio-group {
@@ -149,27 +156,28 @@
                   "updateDistance(synced.zoom.level, selectedRole)",
                   "updateMyOffset(myPosition, others.*)",
               "longitudeChanged(synced.center.longitude, myOffset)",
-               "latitudeChanged(synced.center.latitude)"],
+               "latitudeChanged(synced.center.latitude)",
+                "othersChanged(others.*)"
+          ],
 
           ready: function() {
               window.addEventListener('resize', function(event){
                   this.updateDistance();
               }.bind(this));
           },
-/*
+
           attached: function() {
               this.$$("#map").addEventListener('google-map-ready', function(e) {
                   this.$$("#map").map.addListener('bounds_changed', function() {
                       var newbounds =   this.$$("#map")?  this.$$("#map").map.getBounds() : this.$$("#gmap").map.getBounds() ;
-                      this.synced.bounds.ne.lat = newbounds.getNorthEast().lat();
-                      this.synced.bounds.ne.lng = newbounds.getNorthEast().lng();
-                      this.synced.bounds.sw.lat = newbounds.getSouthWest().lat();
-                      this.synced.bounds.sw.lng = newbounds.getSouthWest().lng();
-     //                 console.log(this.synced.bounds.sw.lng);
+                      var ne= {lat: newbounds.getNorthEast().lat(), lng: newbounds.getNorthEast().lng()};
+                      this.set("synced.bounds.ne", ne);
+                      var sw= {lat: newbounds.getSouthWest().lat(), lng: newbounds.getSouthWest().lng()};
+                      this.set("synced.bounds.sw", sw);
                   }.bind(this));
               }.bind(this));
           },
-*/
+
           selectedRoleChanged: function(newVal, oldVal){
               if (oldVal) {
                   this.$.roles.removeRole(oldVal);
@@ -180,6 +188,18 @@
               this.sortDevices();
           },
 
+          othersChanged: function(changes) {
+              if (this.roles && this.roles.isselected.overview) {
+                  if (changes.path.indexOf("data.bounds.") > -1) {
+                      var index = changes.path.split(".")[1].substring(1);
+                      var poly =this.$$("#poly" +index );
+                      if (poly) {
+                          this.$$("#poly" +index )._buildPathFromPoints();
+                      }
+
+                  }
+              }
+          },
           selectedChanged: function(){
                 var nodist = this.roles.selected.filter(function(r){
                     return r !== "distance";
