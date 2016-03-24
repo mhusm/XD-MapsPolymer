@@ -62,33 +62,18 @@
                 <paper-radio-button name="[[item]]">[[item]]</paper-radio-button>
             </template>
         </paper-radio-group>
-
-
-        <template is="dom-if" if="[[roles.isselected.extended]]" restamp >
-            <google-map id="gmap" latitude="{{synced.center.latitude}}" longitude="{{offsetLongitude}}"
-                        zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI"
-                map-type="{{synced.map.type}}">
-
-            </google-map>
-        </template>
-
-        <template is="dom-if" if="[[!roles.isselected.extended]]" restamp >
-            <google-map latitude="{{synced.center.latitude}}" longitude="{{synced.center.longitude}}"
-                       zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI"
-                        map-type="{{synced.map.type}}">
-               <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
-                   <template is="dom-repeat" items="{{others}}" >
-                       <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
-                                      title="Go Giants!" ></google-map-marker>
-                   </template>
-
+        <google-map id="map" latitude="{{offsetLatitude}}" longitude="{{offsetLongitude}}"
+                    zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI"
+                    map-type="{{synced.map.type}}">
+           <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
+               <template is="dom-repeat" items="{{others}}" >
+                   <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
+                                  title="Go Giants!" ></google-map-marker>
                </template>
-            </google-map>
-        </template>
 
+           </template>
+        </google-map>
        <style>
-
-
           paper-radio-group {
               height: 3em;
           }
@@ -96,7 +81,6 @@
           google-map {
               height: calc(100vh - 3em);
           }
-
       </style>
    </template>
 </dom-module>
@@ -111,6 +95,7 @@
                   value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488},
                       zoom: {level:12},
                       distance: {value: 0},
+                      bounds: {ne:{}, sw: {}},
                       map: {type: "roadmap"}
                   }} ,
                   notify: true
@@ -144,7 +129,11 @@
                   observer: "offsetLongitudeChanged",
                   value: 8.5488
               },
-
+              offsetLatitude: {
+                  type: Number,
+                  observer: "roundedLatitudeChanged",
+                  value: 8.5488
+              },
               selectedRole: {
                   type: String,
                   observer: "selectedRoleChanged"
@@ -159,15 +148,28 @@
           observers: ["selectedChanged(roles.selected.*)",
                   "updateDistance(synced.zoom.level, selectedRole)",
                   "updateMyOffset(myPosition, others.*)",
-              "longitudeChanged(synced.center.longitude, myOffset)"],
+              "longitudeChanged(synced.center.longitude, myOffset)",
+               "latitudeChanged(synced.center.latitude)"],
 
           ready: function() {
               window.addEventListener('resize', function(event){
                   this.updateDistance();
               }.bind(this));
           },
-
-
+/*
+          attached: function() {
+              this.$$("#map").addEventListener('google-map-ready', function(e) {
+                  this.$$("#map").map.addListener('bounds_changed', function() {
+                      var newbounds =   this.$$("#map")?  this.$$("#map").map.getBounds() : this.$$("#gmap").map.getBounds() ;
+                      this.synced.bounds.ne.lat = newbounds.getNorthEast().lat();
+                      this.synced.bounds.ne.lng = newbounds.getNorthEast().lng();
+                      this.synced.bounds.sw.lat = newbounds.getSouthWest().lat();
+                      this.synced.bounds.sw.lng = newbounds.getSouthWest().lng();
+     //                 console.log(this.synced.bounds.sw.lng);
+                  }.bind(this));
+              }.bind(this));
+          },
+*/
           selectedRoleChanged: function(newVal, oldVal){
               if (oldVal) {
                   this.$.roles.removeRole(oldVal);
@@ -187,13 +189,25 @@
           },
 
           offsetLongitudeChanged: function() {
-              this.set("synced.center.longitude",  Math.round10(this.offsetLongitude  -this.myOffset, -10));
+              if (this.roles && this.roles.isselected.extended) {
+                  this.set("synced.center.longitude",  Math.round10(this.offsetLongitude  -this.myOffset, -10));
+              } else {
+                  this.set("synced.center.longitude",  Math.round10(this.offsetLongitude, -10));
+              }
           },
           longitudeChanged: function() {
               if (this.roles && this.roles.isselected.extended) {
                   this.offsetLongitude =  Math.round10(this.synced.center.longitude +this.myOffset, -10);
+              } else {
+                  this.offsetLongitude = this.synced.center.longitude;
               }
 
+          },
+          roundedLatitudeChanged: function() {
+              this.set("synced.center.latitude",  Math.round10(this.offsetLatitude, -10));
+          },
+          latitudeChanged: function() {
+                   this.offsetLatitude = this.synced.center.latitude;
           },
           sortDevices: function(arg1, arg2) {
                this.myPosition = 0;
@@ -233,9 +247,9 @@
 
           updateDistance: function(){
               this.async(function() {
-                  if (this.$$("#gmap")) {
+                  if (this.$$("#map") && this.$$("#map").map) {
                       this.set("synced.distance.value",
-                              this.offsetLongitude - this.$$("#gmap").map.getBounds().getNorthEast().lng());
+                              this.offsetLongitude - this.$$("#map").map.getBounds().getNorthEast().lng());
                   }
               });
           }
