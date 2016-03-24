@@ -19,6 +19,8 @@
     <link rel="import" href="bower_components/google-map/google-map.html">
     <link rel="import" href="bower_components/paper-radio-group/paper-radio-group.html">
     <link rel="import" href="bower_components/paper-radio-button/paper-radio-button.html">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+
     <title></title>
 </head>
 <body>
@@ -42,7 +44,7 @@
         <xdmvc-url-pairing connector="viewer" connectee="overview" ></xdmvc-url-pairing>
         <xdmvc-role name="overview" config='["center", "zoom"]' no-merge></xdmvc-role>
         <xdmvc-role name="mirror" config='["center", "zoom"]' filter="mirror"></xdmvc-role>
-        <xdmvc-role name="extended" config='["center", "zoom"]' filter="extended"></xdmvc-role>
+        <xdmvc-role name="extended" config='["center", "zoom", "map"]' filter="extended"></xdmvc-role>
         <xdmvc-role name="distance" config='["distance"]' filter="extended" no-merge></xdmvc-role>
         <xdmvc-roles id="roles" roles="{{roles}}" select='["distance"]' available='[[availableRoles]]'
                      no-default on-others-roles-changed="sortDevices"></xdmvc-roles>
@@ -64,14 +66,16 @@
 
         <template is="dom-if" if="[[roles.isselected.extended]]" restamp >
             <google-map id="gmap" latitude="{{synced.center.latitude}}" longitude="{{offsetLongitude}}"
-                        zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
+                        zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI"
+                map-type="{{synced.map.type}}">
 
             </google-map>
         </template>
 
         <template is="dom-if" if="[[!roles.isselected.extended]]" restamp >
             <google-map latitude="{{synced.center.latitude}}" longitude="{{synced.center.longitude}}"
-                       zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI">
+                       zoom="{{synced.zoom.level}}" api-key="AIzaSyAYCaqwHA1WCXdsvjZhY0xJ4-vqzPxpmNI"
+                        map-type="{{synced.map.type}}">
                <template is="dom-if" if="[[roles.isselected.overview]]" restamp >
                    <template is="dom-repeat" items="{{others}}" >
                        <google-map-marker latitude="{{item.data.center.latitude}}" longitude="{{item.data.center.longitude}}"
@@ -104,7 +108,11 @@
           properties: {
               synced: {
                   type: Object,
-                  value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488}, zoom: {level:12}, distance: {value: 0}}} ,
+                  value: function(){ return { center: {latitude: 47.3786, longitude: 8.5488},
+                      zoom: {level:12},
+                      distance: {value: 0},
+                      map: {type: "roadmap"}
+                  }} ,
                   notify: true
               },
               roles:{
