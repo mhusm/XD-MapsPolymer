@@ -267,7 +267,7 @@
 
           updateDistance: function(){
               this.async(function() {
-                  if (this.$$("#map") && this.$$("#map").map) {
+                  if (this.$$("#map") && this.$$("#map").map &&  this.$$("#map").map.getBounds()) {
                       this.set("synced.distance.value",
                               this.offsetLongitude - this.$$("#map").map.getBounds().getNorthEast().lng());
                   }
